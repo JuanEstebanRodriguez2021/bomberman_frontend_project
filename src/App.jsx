@@ -1,24 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
-
-function LobbyPlaceholder() {
-  const { username, logout } = useAuth();
-  return (
-    <div className="card">
-      <h2>Lobby</h2>
-      <p>Sesión iniciada como: {username}</p>
-      <button onClick={logout}>Cerrar sesión</button>
-    </div>
-  );
-}
+import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
+import Lobby from './pages/Lobby.jsx';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
   return isAuthenticated ? children : <Navigate to="/login" />;
 }
-
-import Login from './pages/Login.jsx';
-import Register from './pages/Register.jsx';
 
 function App() {
   return (
@@ -31,7 +20,7 @@ function App() {
             path="/lobby"
             element={
               <ProtectedRoute>
-                <LobbyPlaceholder />
+                <Lobby />
               </ProtectedRoute>
             }
           />
