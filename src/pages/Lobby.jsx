@@ -1,14 +1,64 @@
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { connectSocket } from '../realtime/socketClient.js';
-import { useNavigate } from 'react-router-dom';
+
+function CreateRoomModal({ onClose, onSubmit }) {
+  const [name, setName] = useState('');
+  const [capacity, setCapacity] = useState(4);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSubmit({ name: name.trim(), capacity });
+    onClose();
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <h2 className="modal-title">+ CREAR SALA</h2>
+        <form onSubmit={handleSubmit}>
+          <label className="form-label">NOMBRE DE LA SALA</label>
+          <input
+            className="form-input"
+            placeholder="Neon Grid"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            required
+            autoFocus
+          />
+          <label className="form-label">CAPACIDAD</label>
+          <select
+            className="form-input"
+            value={capacity}
+            onChange={e => setCapacity(Number(e.target.value))}
+            style={{ cursor: 'pointer' }}
+          >
+            <option value={2}>2 jugadores</option>
+            <option value={3}>3 jugadores</option>
+            <option value={4}>4 jugadores</option>
+          </select>
+          <button className="btn-primary" type="submit">▶ CREAR</button>
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{ width: '100%', marginTop: '0.5rem', padding: '0.75rem' }}
+            onClick={onClose}
+          >
+            CANCELAR
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function Lobby() {
   const { token, username, logout } = useAuth();
   const [rooms, setRooms] = useState([]);
-  const [roomName, setRoomName] = useState('');
-  const [status, setStatus] = useState('Conectando...');
   const [connected, setConnected] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const socketRef = useRef(null);
   const navigate = useNavigate();
 
@@ -18,105 +68,164 @@ function Lobby() {
 
     socket.on('connect', () => {
       setConnected(true);
-      setStatus('Conectado al lobby');
       socket.emit('room:list');
     });
 
-    socket.on('disconnect', () => {
-      setConnected(false);
-      setStatus('Desconectado');
-    });
+    socket.on('disconnect', () => setConnected(false));
 
-    socket.on('room:list', (data) => setRooms(data));
+    socket.on('room:list', data => setRooms(data));
 
-    socket.on('room:created', (room) => {
+    socket.on('room:created', room => {
       setRooms(prev => prev.find(r => r.id === room.id) ? prev : [...prev, room]);
     });
 
     socket.on('player:joined', ({ room }) => {
       setRooms(prev => prev.map(r => r.id === room.id ? room : r));
-      setStatus(`Esperando jugadores (${room.playerCount}/${room.capacity})...`);
     });
 
-    socket.on('player:left', () => {
-      socket.emit('room:list');
-    });
+    socket.on('player:left', () => socket.emit('room:list'));
 
-    socket.on('game:start', ({ roomId }) => {
-      navigate(`/game/${roomId}`);
-    });
+    socket.on('game:start', ({ roomId }) => navigate(`/game/${roomId}`));
 
-    socket.on('room:error', ({ message }) => {
-      setStatus(`Error: ${message}`);
-    });
+    socket.on('room:error', ({ message }) => alert(message));
 
     return () => socket.disconnect();
   }, [token, navigate]);
 
-  function handleCreateRoom() {
-    if (!socketRef.current || !roomName.trim()) return;
-    socketRef.current.emit('room:create', { name: roomName.trim(), capacity: 4 });
-    setRoomName('');
+  function handleCreate({ name, capacity }) {
+    socketRef.current?.emit('room:create', { name, capacity });
   }
 
-  function handleJoinRoom(roomId) {
-    if (!socketRef.current) return;
-    socketRef.current.emit('room:join', { roomId });
+  function handleJoin(roomId) {
+    socketRef.current?.emit('room:join', { roomId });
   }
+
+  const waitingRooms = rooms.filter(r => r.status === 'waiting');
 
   return (
-    <div className="card" style={{ width: '480px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>Lobby</h2>
-        <button onClick={logout} style={{ width: 'auto', padding: '0.3rem 0.8rem' }}>Salir</button>
-      </div>
-
-      <p style={{ fontSize: '0.9rem', color: connected ? '#4caf50' : '#ff8a65' }}>
-        {connected ? `● Conectado como ${username}` : '● Desconectado'}
-      </p>
-
-      <div style={{ marginBottom: '1rem' }}>
-        <input
-          placeholder="Nombre de la sala"
-          value={roomName}
-          onChange={(e) => setRoomName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleCreateRoom()}
+    <>
+      {showModal && (
+        <CreateRoomModal
+          onClose={() => setShowModal(false)}
+          onSubmit={handleCreate}
         />
-        <button onClick={handleCreateRoom}>Crear sala</button>
-      </div>
-
-      <h3 style={{ marginBottom: '0.5rem' }}>Salas disponibles</h3>
-
-      {rooms.length === 0 ? (
-        <p style={{ color: '#8b95a5', fontSize: '0.9rem' }}>No hay salas — crea una.</p>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {rooms.filter(r => r.status === 'waiting').map(room => (
-            <li key={room.id} style={{
-              background: '#232b3a', borderRadius: '6px', padding: '0.6rem',
-              marginBottom: '0.5rem', display: 'flex',
-              justifyContent: 'space-between', alignItems: 'center',
-            }}>
-              <span>
-                {room.name}{' '}
-                <span style={{ color: '#8b95a5', fontSize: '0.85rem' }}>
-                  ({room.playerCount}/{room.capacity})
-                </span>
-              </span>
-              <button
-                onClick={() => handleJoinRoom(room.id)}
-                style={{ width: 'auto', padding: '0.3rem 0.8rem' }}
-                disabled={room.playerCount >= room.capacity}
-              >
-                Unirse
-              </button>
-            </li>
-          ))}
-        </ul>
       )}
 
-      {status && <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#f2884b' }}>{status}</p>}
-    </div>
+      {/* NAVBAR */}
+      <nav className="navbar">
+        <span className="nav-logo">BOMB<span>ARENA</span></span>
+        <button className="nav-link active">LOBBY</button>
+        <button className="nav-link" onClick={() => navigate('/profile')}>STATS</button>
+        <button className="nav-link danger" onClick={logout}>SALIR</button>
+      </nav>
+
+      {/* LAYOUT */}
+      <div className="lobby-layout">
+        {/* MAIN */}
+        <div className="lobby-main">
+          <div className="lobby-header">
+            <h1 className="lobby-title">Lobby</h1>
+            <p className="lobby-subtitle">
+              Elige una sala o crea la tuya. Partidas en tiempo real.
+            </p>
+          </div>
+
+          {/* MODO CARDS */}
+          <div className="mode-cards">
+            <div className="mode-card">
+              <div className="mode-card-icon">⚡</div>
+              <div className="mode-card-title">PARTIDA RÁPIDA</div>
+              <div className="mode-card-desc">Únete a la primera sala</div>
+            </div>
+            <div className="mode-card">
+              <div className="mode-card-icon">★</div>
+              <div className="mode-card-title">CLÁSICO 4V4</div>
+              <div className="mode-card-desc">Sala con 4 jugadores</div>
+            </div>
+            <div className="mode-card">
+              <div className="mode-card-icon">♥</div>
+              <div className="mode-card-title">CON AMIGOS</div>
+              <div className="mode-card-desc">Crear sala privada</div>
+            </div>
+          </div>
+
+          {/* ACCIONES */}
+          <div className="lobby-actions">
+            <span className="sidebar-label">SALAS DISPONIBLES</span>
+            <span className="spacer" />
+            <button className="btn-create" onClick={() => setShowModal(true)}>
+              + CREAR SALA
+            </button>
+          </div>
+
+          {/* TABLA DE SALAS */}
+          <div className="room-table-header">
+            <span>SALA</span>
+            <span>MODO</span>
+            <span>JUGADORES</span>
+            <span>PING</span>
+            <span>MAPA</span>
+            <span></span>
+          </div>
+
+          {waitingRooms.length === 0 ? (
+            <div style={{ color: '#8b9dc3', fontSize: '0.8rem', padding: '2rem 1rem' }}>
+              No hay salas disponibles — crea una para empezar.
+            </div>
+          ) : (
+            waitingRooms.map(room => {
+              const full = room.playerCount >= room.capacity;
+              return (
+                <div className="room-row" key={room.id}>
+                  <span className="room-name">
+                    <span className="room-name-star">✦</span>
+                    {room.name}
+                  </span>
+                  <span className="room-mode">Clásico {room.capacity}v{room.capacity}</span>
+                  <span className={`room-players ${full ? 'full' : 'ok'}`}>
+                    {room.playerCount}/{room.capacity}
+                  </span>
+                  <span className="room-ping">—</span>
+                  <span className="room-map">Arena</span>
+                  {full ? (
+                    <span className="tag-full">LLENA</span>
+                  ) : (
+                    <button className="btn-enter" onClick={() => handleJoin(room.id)}>
+                      ENTRAR
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* SIDEBAR */}
+        <div className="lobby-sidebar">
+          {/* PERFIL */}
+          <div className="profile-card">
+            <div className="profile-top">
+              <div className="profile-avatar">
+                {username?.[0]?.toUpperCase() || 'P'}
+              </div>
+              <div>
+                <div className="profile-name">{username?.toUpperCase()}</div>
+                <div className="profile-sub">Jugador activo</div>
+              </div>
+            </div>
+          </div>
+
+          {/* ESTADO CONEXIÓN */}
+          <div>
+            <div className="sidebar-label">ESTADO</div>
+            <div style={{ fontSize: '0.8rem', color: connected ? '#00ff88' : '#ff4444' }}>
+              <span className={`status-dot ${connected ? 'online' : 'offline'}`} />
+              {connected ? 'CONECTADO AL SERVIDOR' : 'SIN CONEXIÓN'}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 

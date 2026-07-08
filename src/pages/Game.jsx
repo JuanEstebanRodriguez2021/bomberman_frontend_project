@@ -3,67 +3,74 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useGameSocket } from '../game/useGameSocket.js';
 import { GameBoard } from '../game/GameBoard.jsx';
 
+const PLAYER_COLORS = ['p-color-0', 'p-color-1', 'p-color-2', 'p-color-3'];
+const CORNER_CLASS  = ['corner-p1', 'corner-p2', 'corner-p3', 'corner-p4'];
+
 function Game() {
   const { roomId } = useParams();
   const { token, username } = useAuth();
   const navigate = useNavigate();
 
   const { gameState, gameOver, connected, movePlayer, placeBomb } = useGameSocket(token, roomId);
+
   const currentPlayer = gameState?.players?.find(p => p.username === username);
   const currentUserId = currentPlayer?.userId;
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#14171c',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '1rem',
-    }}>
-      <div style={{ marginBottom: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-        <h2 style={{ color: '#e8590c', margin: 0 }}>Bomberman Online</h2>
-        <span style={{ color: connected ? '#22c55e' : '#ff8a65', fontSize: 12 }}>
-          {connected ? '● Conectado' : '● Desconectado'}
-        </span>
+    <div className="game-layout">
+      {/* TOPBAR */}
+      <div className="game-topbar">
+        <div className="game-map-name">
+          MAPA: <span>ARENA PRINCIPAL</span>
+        </div>
+        <div className="game-live">EN VIVO</div>
       </div>
 
-      {/* Panel de jugadores */}
-      {gameState?.players && (
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          {gameState.players.map((p, i) => (
-            <div key={p.userId} style={{
-              padding: '4px 12px',
-              borderRadius: 6,
-              background: p.alive ? '#1b2330' : '#2a1a1a',
-              border: p.username === username ? '1px solid #e8590c' : '1px solid #303a4a',
-              color: p.alive ? '#fafaf8' : '#555',
-              fontSize: 13,
-              textDecoration: p.alive ? 'none' : 'line-through',
-            }}>
-              {p.username} {p.username === username && '(tú)'}
+      {!gameOver ? (
+        <div style={{ position: 'relative' }}>
+          {/* Corner player badges */}
+          {gameState?.players?.map((p, i) => (
+            <div key={p.userId} className={CORNER_CLASS[i] || ''} style={{ position: 'absolute', zIndex: 10 }}>
+              <div className={`player-token ${PLAYER_COLORS[i]} ${p.username === username ? 'me' : ''}`}
+                   style={{ opacity: p.alive ? 1 : 0.3 }}>
+                P{i + 1}
+              </div>
             </div>
           ))}
+
+          <div className="game-board-wrapper">
+            <GameBoard
+              gameState={gameState}
+              currentUserId={currentUserId}
+              onMove={movePlayer}
+              onBomb={placeBomb}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="gameover-card">
+          <div className="gameover-title">
+            {gameOver.winnerUsername === 'Empate' ? '¡EMPATE!' : '¡GAME OVER!'}
+          </div>
+          <div className="gameover-winner">
+            {gameOver.winnerUsername === 'Empate'
+              ? 'Nadie sobrevivió'
+              : `🏆 ${gameOver.winnerUsername} gana`}
+          </div>
+          {gameOver.winnerUsername === username && (
+            <div style={{ color: '#00ff88', fontFamily: "'Press Start 2P', monospace", fontSize: '0.6rem', marginBottom: '1rem' }}>
+              ¡ERES EL CAMPEÓN!
+            </div>
+          )}
+          <button className="btn-primary" onClick={() => navigate('/lobby')}>
+            ▶ VOLVER AL LOBBY
+          </button>
         </div>
       )}
 
-      {/* Tablero */}
-      {!gameOver ? (
-        <GameBoard
-          gameState={gameState}
-          currentUserId={currentUserId}
-          onMove={movePlayer}
-          onBomb={placeBomb}
-        />
-      ) : (
-        
-        <div className="card" style={{ textAlign: 'center' }}>
-          <h2>{gameOver.winnerUsername === 'Empate' ? '¡Empate!' : `¡${gameOver.winnerUsername} gana!`}</h2>
-          <p style={{ color: '#8b95a5' }}>
-            {gameOver.winnerUsername === username ? '🏆 ¡Ganaste!' : 'Para la próxima vez.'}
-          </p>
-          <button onClick={() => navigate('/lobby')}>Volver al Lobby</button>
+      {!gameOver && (
+        <div className="controls-hint">
+          WASD / ↑↓←→ MOVER · ESPACIO = BOMBA
         </div>
       )}
     </div>

@@ -1,93 +1,64 @@
 import { useEffect } from 'react';
 
-const CELL_SIZE = 40;
-
-const COLORS = {
-  0: '#3a3a3a',      // celda libre
-  1: '#222222',      // pared
-  2: '#7a5c2e',      // bloque destructible
-};
-
-const PLAYER_COLORS = ['#e8590c', '#3b82f6', '#22c55e', '#a855f7'];
+const CELL_CLASS = { 0: 'free', 1: 'wall', 2: 'block' };
+const PLAYER_COLORS = ['p-color-0', 'p-color-1', 'p-color-2', 'p-color-3'];
 
 export function GameBoard({ gameState, currentUserId, onMove, onBomb }) {
 
-  // Captura de teclado
   useEffect(() => {
     function handleKey(e) {
       switch (e.key) {
-        case 'ArrowUp':    case 'w': e.preventDefault(); onMove('up'); break;
-        case 'ArrowDown':  case 's': e.preventDefault(); onMove('down'); break;
-        case 'ArrowLeft':  case 'a': e.preventDefault(); onMove('left'); break;
+        case 'ArrowUp':    case 'w': e.preventDefault(); onMove('up');    break;
+        case 'ArrowDown':  case 's': e.preventDefault(); onMove('down');  break;
+        case 'ArrowLeft':  case 'a': e.preventDefault(); onMove('left');  break;
         case 'ArrowRight': case 'd': e.preventDefault(); onMove('right'); break;
-        case ' ':                    e.preventDefault(); onBomb(); break;
+        case ' ':                    e.preventDefault(); onBomb();         break;
       }
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [onMove, onBomb]);
 
-  if (!gameState) return <p style={{ color: '#fafaf8' }}>Cargando partida...</p>;
+  if (!gameState) {
+    return (
+      <div style={{ color: '#8b9dc3', fontFamily: "'Press Start 2P', monospace", fontSize: '0.6rem', padding: '2rem' }}>
+        CARGANDO PARTIDA...
+      </div>
+    );
+  }
 
   const { map, players, bombs = [], explosionCells = [] } = gameState;
-
   const explosionSet = new Set(explosionCells.map(c => `${c.x},${c.y}`));
-  const bombSet = new Map((bombs || []).map(b => [`${b.x},${b.y}`, b]));
+  const bombMap = new Map((bombs || []).map(b => [`${b.x},${b.y}`, b]));
 
   return (
-    <div style={{ display: 'inline-block', border: '2px solid #e8590c', borderRadius: 4 }}>
+    <div>
       {map.map((row, rowIdx) => (
-        <div key={rowIdx} style={{ display: 'flex' }}>
+        <div className="board-row" key={rowIdx}>
           {row.map((cell, colIdx) => {
             const isExplosion = explosionSet.has(`${colIdx},${rowIdx}`);
-            const hasBomb = bombSet.has(`${colIdx},${rowIdx}`);
-            const playersHere = players.filter(p => p.alive && p.x === colIdx && p.y === rowIdx);
+            const hasBomb = bombMap.has(`${colIdx},${rowIdx}`);
+            const playersHere = players.filter(
+              p => p.alive && p.x === colIdx && p.y === rowIdx
+            );
 
-            let bgColor = isExplosion ? '#ff6b00' : COLORS[cell] || '#3a3a3a';
+            let cellClass = isExplosion ? 'explosion' : (CELL_CLASS[cell] || 'free');
 
             return (
-              <div
-                key={colIdx}
-                style={{
-                  width: CELL_SIZE,
-                  height: CELL_SIZE,
-                  background: bgColor,
-                  border: '1px solid #1a1a1a',
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 18,
-                  transition: 'background 0.15s',
-                }}
-              >
+              <div key={colIdx} className={`board-cell ${cellClass}`}>
                 {hasBomb && !isExplosion && (
-                  <span title="Bomba">💣</span>
+                  <span className="bomb-token">💣</span>
                 )}
-                {playersHere.map((p, i) => {
+                {playersHere.map(p => {
                   const pIndex = players.findIndex(pl => pl.userId === p.userId);
                   const isMe = p.userId === currentUserId;
                   return (
                     <div
                       key={p.userId}
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: '50%',
-                        background: PLAYER_COLORS[pIndex % PLAYER_COLORS.length],
-                        border: isMe ? '2px solid white' : '2px solid transparent',
-                        position: 'absolute',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 12,
-                        fontWeight: 'bold',
-                        color: 'white',
-                        zIndex: 2,
-                      }}
+                      className={`player-token ${PLAYER_COLORS[pIndex % 4]} ${isMe ? 'me' : ''}`}
                       title={p.username}
                     >
-                      {p.username[0].toUpperCase()}
+                      P{pIndex + 1}
                     </div>
                   );
                 })}
@@ -96,9 +67,6 @@ export function GameBoard({ gameState, currentUserId, onMove, onBomb }) {
           })}
         </div>
       ))}
-      <div style={{ padding: '4px 8px', background: '#1b2330', fontSize: 12, color: '#8b95a5' }}>
-        WASD / ↑↓←→ mover · Espacio = bomba
-      </div>
     </div>
   );
 }
