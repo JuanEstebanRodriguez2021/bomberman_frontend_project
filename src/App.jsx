@@ -4,6 +4,7 @@ import Login from './pages/Login.jsx';
 import Lobby from './pages/Lobby.jsx';
 import Game from './pages/Game.jsx';
 import Profile from './pages/Profile.jsx';
+import Metrics from './pages/Metrics.jsx'
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
@@ -19,6 +20,7 @@ function App() {
           <Route path="/lobby" element={<ProtectedRoute><Lobby /></ProtectedRoute>} />
           <Route path="/game/:roomId" element={<ProtectedRoute><Game /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/metrics" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       </BrowserRouter>

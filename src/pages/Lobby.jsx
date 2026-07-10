@@ -111,11 +111,12 @@ function Lobby() {
         />
       )}
 
-      {/* NAVBAR */}
+      {/* NavBar */}
       <nav className="navbar">
         <span className="nav-logo">BOMB<span>ARENA</span></span>
         <button className="nav-link active">LOBBY</button>
         <button className="nav-link" onClick={() => navigate('/profile')}>STATS</button>
+        <button className="nav-link" onClick={() => navigate('/metrics')}>STATS</button>
         <button className="nav-link danger" onClick={logout}>SALIR</button>
       </nav>
 
