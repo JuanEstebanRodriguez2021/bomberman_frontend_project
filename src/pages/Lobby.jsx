@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { connectSocket } from '../realtime/socketClient.js';
+import { useSocketContext } from '../context/SocketContext.jsx';
 
 function CreateRoomModal({ onClose, onSubmit }) {
   const [name, setName] = useState('');
@@ -55,49 +55,41 @@ function CreateRoomModal({ onClose, onSubmit }) {
 }
 
 function Lobby() {
-  const { token, username, logout } = useAuth();
-  const [rooms, setRooms] = useState([]);
-  const [connected, setConnected] = useState(false);
+  const { username, logout } = useAuth();
+  const {
+    connected,
+    rooms,
+    listRooms,
+    createRoom,
+    joinRoom,
+    startedRoomId,
+    resetGame,
+  } = useSocketContext();
   const [showModal, setShowModal] = useState(false);
-  const socketRef = useRef(null);
   const navigate = useNavigate();
 
+  // Pide la lista de salas al entrar al lobby (y cada vez que el socket
+  // se reconecta, ya que la lista solo llega cuando se pide).
   useEffect(() => {
-    const socket = connectSocket(token);
-    socketRef.current = socket;
+    if (connected) listRooms();
+  }, [connected, listRooms]);
 
-    socket.on('connect', () => {
-      setConnected(true);
-      socket.emit('room:list');
-    });
+  useEffect(() => {
+    if (startedRoomId) {
+      navigate(`/game/${startedRoomId}`);
+    }
+  }, [startedRoomId, navigate]);
 
-    socket.on('disconnect', () => setConnected(false));
-
-    socket.on('room:list', data => setRooms(data));
-
-    socket.on('room:created', room => {
-      setRooms(prev => prev.find(r => r.id === room.id) ? prev : [...prev, room]);
-    });
-
-    socket.on('player:joined', ({ room }) => {
-      setRooms(prev => prev.map(r => r.id === room.id ? room : r));
-    });
-
-    socket.on('player:left', () => socket.emit('room:list'));
-
-    socket.on('game:start', ({ roomId }) => navigate(`/game/${roomId}`));
-
-    socket.on('room:error', ({ message }) => alert(message));
-
-    return () => socket.disconnect();
-  }, [token, navigate]);
+  useEffect(() => {
+    resetGame();
+  }, []);
 
   function handleCreate({ name, capacity }) {
-    socketRef.current?.emit('room:create', { name, capacity });
+    createRoom(name, capacity);
   }
 
   function handleJoin(roomId) {
-    socketRef.current?.emit('room:join', { roomId });
+    joinRoom(roomId);
   }
 
   const waitingRooms = rooms.filter(r => r.status === 'waiting');

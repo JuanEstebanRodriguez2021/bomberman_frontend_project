@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useSocketContext } from '../context/SocketContext.jsx';
 import { useGameSocket } from '../game/useGameSocket.js';
 import { GameBoard } from '../game/GameBoard.jsx';
 
@@ -8,10 +10,16 @@ const CORNER_CLASS  = ['corner-p1', 'corner-p2', 'corner-p3', 'corner-p4'];
 
 function Game() {
   const { roomId } = useParams();
-  const { token, username } = useAuth();
+  const { username } = useAuth();
   const navigate = useNavigate();
+  const { connected, joinRoom } = useSocketContext();
+  const { gameState, gameOver, movePlayer, placeBomb } = useGameSocket();
 
-  const { gameState, gameOver, connected, movePlayer, placeBomb } = useGameSocket(token, roomId);
+  useEffect(() => {
+    if (connected && !gameState && roomId) {
+      joinRoom(roomId);
+    }
+  }, [connected, gameState, roomId, joinRoom]);
 
   const currentPlayer = gameState?.players?.find(p => p.username === username);
   const currentUserId = currentPlayer?.userId;
