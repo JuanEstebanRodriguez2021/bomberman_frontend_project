@@ -68,11 +68,11 @@ function Lobby() {
   const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
 
-  // Pide la lista de salas al entrar al lobby (y cada vez que el socket
-  // se reconecta, ya que la lista solo llega cuando se pide).
+  
   useEffect(() => {
     if (connected) listRooms();
   }, [connected, listRooms]);
+
 
   useEffect(() => {
     if (startedRoomId) {
@@ -80,8 +80,10 @@ function Lobby() {
     }
   }, [startedRoomId, navigate]);
 
+
   useEffect(() => {
     resetGame();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleCreate({ name, capacity }) {

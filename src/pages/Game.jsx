@@ -13,6 +13,7 @@ function Game() {
   const { username } = useAuth();
   const navigate = useNavigate();
   const { connected, joinRoom } = useSocketContext();
+
   const { gameState, gameOver, movePlayer, placeBomb } = useGameSocket();
 
   useEffect(() => {
